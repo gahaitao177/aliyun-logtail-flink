@@ -1,0 +1,13 @@
+/.classpath
+/.settings
+/.project
+/bin/
+config.ini
+logs
+.idea/
+*.iml
+*target/
+doc/
+*dependency-reduced-pom.xml
+src/data
+*.log
