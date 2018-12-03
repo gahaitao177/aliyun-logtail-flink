@@ -14,9 +14,11 @@ import org.elasticsearch.client.Requests
 import org.joda.time.{DateTime, DateTimeZone}
 
 /**
-  * Created by kehailin on 2018-8-23. 
+  * Created by kehailin on 2018-8-23.
+  *
+  * SourceSink类的参数 topic 没有序列化会报错
   */
-class SourceSink[T <: Time](tool: ParameterTool) {
+class SourceSink[T <: Time](tool: ParameterTool, topic: String) extends Serializable {
 
     def elasticSearchSink(): ElasticsearchSink[T] = {
 
@@ -29,8 +31,6 @@ class SourceSink[T <: Time](tool: ParameterTool) {
             val port = es(1).toInt
             httpHosts.add(new HttpHost(host, port, "http"))
         }
-
-        val topic = "aliyun_xue_study"
 
         //output
         val esSinkBuilder = new ElasticsearchSink.Builder[T](
