@@ -15,6 +15,10 @@
         <module>aliyun-xue-study-split</module>
         <module>aliyun-learn-action</module>
         <module>aliyun-user-action</module>
+        <module>aliyun-learning-record</module>
+        <module>aliyun-learn-hmHwl</module>
+        <module>aliyun-ml-trial-lesson-request</module>
+        <module>aliyun-ml-trial-lesson-response</module>
     </modules>
 
     <properties>

@@ -18,18 +18,20 @@ import scala.collection.JavaConverters._
 /**
   * Created by kehailin on 2018-11-15.
   *
-  * Project: study
-  * Logstore: xue-gateway-learning_learning
+  * Project: learning
+  * Logstore: classroom-classroom_log
   * 对应离线数据： learning
+  *
+  * @deprecated 从20181211起所有的日志格式改为json格式，见ClassroomApp
   */
 object App {
     def main(args: Array[String]): Unit = {
 
         val tool: ParameterTool = ParameterTool.fromArgs(args)
-//        if (!checkArguments(tool)){
-//            System.err.println("No port specified. Please run 'App --output <output>'")
-//            System.exit(1)
-//        }
+        if (!checkArguments(tool)){
+            System.err.println("No port specified. Please run 'App --output <output>'")
+            System.exit(1)
+        }
 
         val (configProps, deserializer) = ConfigUtil.getConfig
 
@@ -41,16 +43,16 @@ object App {
         env.getCheckpointConfig.setMaxConcurrentCheckpoints(1)
         env.getCheckpointConfig.enableExternalizedCheckpoints(ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION)
         val checkpoint = "hdfs://hfflink/flink/checkpoints/xue_learning"
-//        env.setStateBackend(new RocksDBStateBackend(checkpoint, true))
+        env.setStateBackend(new RocksDBStateBackend(checkpoint, true))
 
         val inputStream = env.addSource(new FlinkLogConsumer[RawLogGroupList](deserializer, configProps))
 
         val stream = new DataStream[RawLogGroupList](inputStream)  //转化成Scala的DataStream
         val result = transform(stream)
 
-//        result.addSink(new SourceSink[Business](tool, "aliyun_xue_learning").elasticSearchSink())
+        result.addSink(new SourceSink[Business](tool, "aliyun_xue_learning").elasticSearchSink())
 
-        result.print().setParallelism(1)
+//        result.print().setParallelism(1)
         env.execute("aliyun_xue_learning")
     }
 
@@ -70,7 +72,7 @@ object App {
 
         val contents = rawLog.map(_.contents).filter(r => {
             val message = r.get("message")
-            (message.contains("RtcEvent")
+            (message.contains("RtcEvent")   //新的日志中只包含 RoomEvent 和 RtcEvent
                 || message.contains("RoomEvent")
                 || message.contains("RtcList")
                 || message.contains(">>>onClose"))
@@ -79,12 +81,15 @@ object App {
         val result = contents.map(c => {
 
             try {
-                val originDateTime = c.getOrDefault("time", "")
+                val originDateTime = c.get("time")
                 val dateTime = originDateTime.substring(0, 19)
-                val message = c.getOrDefault("message", "")
-                val arr = message.split("\t")
+                val message = c.get("message").substring(1).trim
 
-                var logType = arr(0).split("-")(1).trim()
+                println("message: " + message)
+
+                val arr = message.split("\t| ")
+
+                var logType = arr(0)
 
                 var lessonPlanID = 0
                 var courseStatus = ""
@@ -122,13 +127,19 @@ object App {
                     courseStatus = arr(3)
                     courseName = arr(4)
                     action = arr(5)
-                    messageSize = arr(6).toInt
+//                    messageSize = 0
                     if (arr(7).contains("Windows")){
                         userAgent = arr(7) + "|" + arr(8)
-                    }else {
+                    }else if (arr(7) != "N") {
                         userAgent = arr(7) + "|" + arr(9) + "|" + arr(10)
                     }
-                    deviceID = arr(13)
+
+                    val osName = arr(7)
+                    val browserName = arr(8)
+                    val clientName = arr(9)
+                    val clientVersion = arr(10)
+
+                    deviceID = if (arr(13) != "N") arr(13) else ""
 
                 } else if (logType.contains("RtcList")){
                     logType = "rtclist"

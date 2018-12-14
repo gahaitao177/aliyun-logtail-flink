@@ -1,4 +1,4 @@
-package com.hfjy.logtail.util
+package com.hfjy.ml.util
 
 import java.util.Properties
 
@@ -20,11 +20,11 @@ object ConfigUtil {
         configProps.put(ConfigConstants.LOG_ACCESSKEY, "LKGQfDOA08FjNtVMPe3FmuMuIATTRT")
 
         // 设置日志服务的consumer_group
-        configProps.put(ConfigConstants.LOG_CONSUMERGROUP, "bigdata-streaming-study-nginx")
+        configProps.put(ConfigConstants.LOG_CONSUMERGROUP, "bigdata-streaming-ml-trial-lesson-request")
         // 设置日志服务的project
-        configProps.put(ConfigConstants.LOG_PROJECT, "nginx-accesslog")
+        configProps.put(ConfigConstants.LOG_PROJECT, "trial-lesson-assigning")
         // 设置日志服务的Logstore
-        configProps.put(ConfigConstants.LOG_LOGSTORE, "study-nginx")
+        configProps.put(ConfigConstants.LOG_LOGSTORE, "trial_lesson_request")
         // 设置消费日志服务起始位置
         configProps.put(ConfigConstants.LOG_CONSUMER_BEGIN_POSITION, Consts.LOG_END_CURSOR)
         // 设置日志服务的消息反序列化方法

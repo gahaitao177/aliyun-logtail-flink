@@ -1,8 +1,9 @@
 package com.hfjy.logtail
 
+import com.alibaba.fastjson.JSON
 import com.aliyun.openservices.log.flink.FlinkLogConsumer
 import com.aliyun.openservices.log.flink.data.{RawLog, RawLogGroup, RawLogGroupList}
-import com.hfjy.logtail.bean.{Content, StudyAccess, StudyLessonQuizId, StudyRobotPad}
+import com.hfjy.logtail.bean._
 import com.hfjy.logtail.flink.SourceSink
 import com.hfjy.logtail.util.ConfigUtil
 import org.apache.flink.api.java.utils.ParameterTool
@@ -45,7 +46,7 @@ object App {
         val inputStream = env.addSource(new FlinkLogConsumer[RawLogGroupList](deserializer, configProps))
 
         val stream = new DataStream[RawLogGroupList](inputStream)  //转化成Scala的DataStream
-        val content = transform(stream)
+        val content = transform(stream).uid("study_origin")
 
         //study日志目前知道的有三种形式
         val split: SplitStream[Content] = content.split(d => {
@@ -54,6 +55,7 @@ object App {
                 case log if log.contains("ACCESS") => List("access")
                 case log if log.contains("[user-use-tablet]") => List("robotPad")
                 case log if log.contains("设置课件题目数量>>>>") => List("lessonPlanIdQuiz")
+                case log if log.contains("[user-use-videoBypass]") => List("videoBypass")
                 case _ => List("others")
             }
         })
@@ -61,14 +63,19 @@ object App {
         val access = split.select("access")
         val robotPad = split.select("robotPad")
         val lessonPlanIdQuiz = split.select("lessonPlanIdQuiz")
+        val videoBypass = split.select("videoBypass")
+
 
         val studyAccess = transformAccess(access)
         val studyRobotPad = transformRobotPad(robotPad)
         val studyLessonPlanIdQuiz = transformLessonPlanIdQuiz(lessonPlanIdQuiz)
+        val studyVideoBypass = transformVideoBypass(videoBypass)
 
+        content.addSink(new SourceSink[Content](tool, "aliyun_study_origin").elasticSearchSink())
         studyAccess.addSink(new SourceSink[StudyAccess](tool, "aliyun_study_access").elasticSearchSink())
         studyRobotPad.addSink(new SourceSink[StudyRobotPad](tool, "aliyun_study_robotpad").elasticSearchSink())
         studyLessonPlanIdQuiz.addSink(new SourceSink[StudyLessonQuizId](tool, "aliyun_study_lesson_plan_id_quiz").elasticSearchSink())
+        studyVideoBypass.addSink(new SourceSink[Video](tool, "aliyun_study_video_bypass").elasticSearchSink())
 
         env.execute("aliyun_xue_study_split")
     }
@@ -158,26 +165,14 @@ object App {
             val logmessage = d.logmessage
             try {
                 val arr = logmessage.split("\t")
-                val lessonPlanId = arr(1).toInt
-                val userId = arr(2).toInt
-                val userType = arr(3).toInt
-                val deviceVersion = arr(4)
-                val deviceNodeNo = arr(5)
-                val orderVersion = arr(6)
-                val deviceSdkVersion = arr(7)
-                StudyRobotPad(dateTime,
-                    lessonPlanId,
-                    userId,
-                    userType,
-                    deviceVersion,
-                    deviceNodeNo,
-                    orderVersion,
-                    deviceSdkVersion
-                )
+                val info = arr(1).trim
+                val robot = JSON.parseObject(info, classOf[StudyRobotPad])
+                val result = robot.copy(dateTime)
+                result
             } catch {
-                case e: Exception => StudyRobotPad(dateTime = "-1")
+                case e: Exception => StudyRobotPad()
             }
-        }).filter(_.dateTime != "-1")
+        }).filter(_.dateTime != "")
         result
     }
 
@@ -211,6 +206,41 @@ object App {
             rows.iterator
         }).filter(_.dateTime != "-1")
         result
+    }
+
+    def transformVideoBypass(videoBypass: DataStream[Content]): DataStream[Video] = {
+        val video = videoBypass.map(line => {
+
+            try {
+                val dateTime = line.dateTime
+                val message = line.logmessage
+                val info = message.split("\t")(1).trim
+                val json = JSON.parseObject(info)
+
+                val abtestVersion = json match {
+                    case j if j.containsKey("abtestVersion") => j.getIntValue("abtestVersion")
+                    case j if j.containsKey("abtestVersion:") => j.getIntValue("abtestVersion:")
+                    case _ => 0
+                }
+
+                val studentId = json match {
+                    case j if j.containsKey("student_id") => j.getIntValue("student_id")
+                    case j if j.containsKey("student_id:") => j.getIntValue("student_id:")
+                    case _ => 0
+                }
+
+                val lessonPlanId = json match {
+                    case j if j.containsKey("lesson_plan_id") => j.getIntValue("lesson_plan_id")
+                    case j if j.containsKey("lesson_plan_id:") => j.getIntValue("lesson_plan_id:")
+                    case _ => 0
+                }
+
+                Video(dateTime, abtestVersion, studentId, lessonPlanId)
+            } catch {
+                case e: Exception => Video()
+            }
+        }).filter(_.dateTime != "")
+        video
     }
 
     def checkArguments(tool: ParameterTool): Boolean = {

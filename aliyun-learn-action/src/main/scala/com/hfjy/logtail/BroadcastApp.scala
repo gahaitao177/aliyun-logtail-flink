@@ -5,21 +5,25 @@ import com.aliyun.openservices.log.flink.data.{RawLog, RawLogGroup, RawLogGroupL
 import com.hfjy.logtail.bean.Action
 import com.hfjy.logtail.flink.SourceSink
 import com.hfjy.logtail.util.ConfigUtil
+import org.apache.flink.api.common.state.{BroadcastState, MapStateDescriptor, ValueStateDescriptor}
+import org.apache.flink.api.common.typeinfo.{TypeHint, TypeInformation, Types}
 import org.apache.flink.api.java.utils.ParameterTool
-import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
-import org.apache.flink.streaming.api.scala.DataStream
+import org.apache.flink.api.scala._
 import org.apache.flink.contrib.streaming.state.RocksDBStateBackend
 import org.apache.flink.streaming.api.CheckpointingMode
+import org.apache.flink.streaming.api.datastream.{BroadcastStream, DataStreamSource}
 import org.apache.flink.streaming.api.environment.CheckpointConfig.ExternalizedCheckpointCleanup
-import org.apache.flink.api.scala._
-import org.apache.flink.streaming.api.functions.co.CoFlatMapFunction
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
+import org.apache.flink.streaming.api.functions.co.{BroadcastProcessFunction, KeyedBroadcastProcessFunction}
+import org.apache.flink.streaming.api.scala.DataStream
 import org.apache.flink.util.Collector
+
 import scala.collection.JavaConverters._
 
 /**
   * Created by kehailin on 2018-11-28. 
   */
-object App {
+object BroadcastApp {
     def main(args: Array[String]): Unit = {
 
         val tool: ParameterTool = ParameterTool.fromArgs(args)
@@ -37,7 +41,7 @@ object App {
         env.getCheckpointConfig.setCheckpointTimeout(60000)
         env.getCheckpointConfig.setMaxConcurrentCheckpoints(1)
         env.getCheckpointConfig.enableExternalizedCheckpoints(ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION)
-        val checkpoint = "hdfs://hfflink/flink/checkpoints/learn_action"
+        val checkpoint = "hdfs://hfflink/flink/checkpoints/learn_action_broadcast"
         env.setStateBackend(new RocksDBStateBackend(checkpoint, true))
 
         val inputStream = env.addSource(new FlinkLogConsumer[RawLogGroupList](deserializer, configProps))
@@ -46,9 +50,9 @@ object App {
 
         val result = transform(stream, env)
 
-        result.addSink(new SourceSink[Action](tool, "aliyun_learn_action").elasticSearchSink())
+        result.addSink(new SourceSink[Action](tool, "aliyun_learn_action_broadcast").elasticSearchSink())
 
-        env.execute("aliyun_learn_action")
+        env.execute("aliyun_learn_action_broadcast")
     }
 
     /**
@@ -66,45 +70,25 @@ object App {
             list
         })
 
-//        val startFunctions = List("getQuizsByLessonPlan", "getCacheHomeworkByLessonPlanId", "saveTeacherCorrections", "getAuditionLessonInfo", "saveCourseWare", "saveHomework", "submitTeacherCorrection", "submitAudtionLessonReport", "saveAuditionLessonInfo")
-//        val endFunctions = List("saveCourseWare", "saveHomework", "submitTeacherCorrection", "submitAudtionLessonReport", "saveAuditionLessonInfo")
-//        val functions: DataStream[List[String]] = new DataStream(env.fromElements(startFunctions).broadcast())
+        val startFunctions = List("getQuizsByLessonPlan", "getCacheHomeworkByLessonPlanId", "saveTeacherCorrections", "getAuditionLessonInfo",
+            "saveCourseWare", "saveHomework", "submitTeacherCorrection", "submitAudtionLessonReport", "saveAuditionLessonInfo")
+        val functions: DataStreamSource[List[String]] = env.fromElements(startFunctions)  //
 
-        val functionMessage = rawLog.map(r => {
+        val functionMessage: DataStream[(String, String, String)] = rawLog.map(r => {
             val content = r.getContents
             val time = content.getOrDefault("time", "")
             val message = content.getOrDefault("message", "")
-            (time, message)
+            val function = message.split("\t")(0).substring(1).trim
+            (time, function, message)
         }).filter(_._2 != "")
-            //方法1：
-            .filter(cm => {
-            val msg = cm._2
-            val function = msg.split("\t")(0).substring(1).trim
 
-            val lessonFunctions = List("getQuizsByLessonPlan", "getCacheHomeworkByLessonPlanId", "saveTeacherCorrections", "getAuditionLessonInfo",
-                "saveCourseWare", "saveHomework", "submitTeacherCorrection", "submitAudtionLessonReport", "saveAuditionLessonInfo")
-                lessonFunctions.contains(function)  //两个functions能在各个slot获取到？还是需要广播变量？
-        })
+        val broadcastStateDescriptor: MapStateDescriptor[Void, List[String]] =
+            new MapStateDescriptor("patterns", Types.VOID, TypeInformation.of(new TypeHint[List[String]] {}))
+        val patterns: BroadcastStream[List[String]] = functions.broadcast(broadcastStateDescriptor)
 
-        //下面是方法2：该方法不能生成checkpoint
-            /*.connect(functions).flatMap(new CoFlatMapFunction[(String, String), List[String], (String, String)] {
+        val patternMessage: DataStream[(String, String)] = functionMessage.connect(patterns).process(new PatternEvaluator)
 
-                var filterFunction: List[String] = _
-                override def flatMap1(value: (String, String), out: Collector[(String, String)]): Unit = {
-
-                    val msg = value._2
-                    val function = msg.split("\t")(0).substring(1).trim
-                    if (filterFunction.contains(function)) {
-                        out.collect(value)
-                    }
-                }
-
-                override def flatMap2(value: List[String], out: Collector[(String, String)]): Unit = {
-                    filterFunction = value
-                }
-            })*/
-
-        val result = functionMessage.map(fm => {
+        val result = patternMessage.map(fm => {
             val dateTime = fm._1
             try {
                 val fmsg = fm._2.substring(1).trim  //message 都是以"-"开头
@@ -123,11 +107,43 @@ object App {
         }).filter(_.dateTime != "")
 
         result
-
     }
 
 
     def checkArguments(tool: ParameterTool): Boolean = {
         tool.has("output")
     }
+}
+
+class PatternEvaluator extends BroadcastProcessFunction[(String, String, String), List[String], (String, String)] {
+
+
+    override def processElement(value: (String, String, String),
+                                ctx: BroadcastProcessFunction[(String, String, String), List[String], (String, String)]#ReadOnlyContext,
+                                out: Collector[(String, String)]): Unit = {
+
+        val patterns: List[String] = ctx.getBroadcastState(
+            new MapStateDescriptor("patterns",
+                Types.VOID,
+                TypeInformation.of(new TypeHint[List[String]] {}))).get(null)
+
+        val function = value._2
+        if (patterns != null && patterns.contains(function)) {
+            out.collect((value._1, value._3))
+        }
+
+    }
+
+    override def processBroadcastElement(value: List[String],
+                                         ctx: BroadcastProcessFunction[(String, String, String), List[String], (String, String)]#Context,
+                                         out: Collector[(String, String)]): Unit = {
+
+        val broadcastState: BroadcastState[Void, List[String]] = ctx.getBroadcastState(
+            new MapStateDescriptor("patterns",
+                Types.VOID,
+                TypeInformation.of(new TypeHint[List[String]] {})))
+        broadcastState.put(null, value)
+    }
+
+
 }

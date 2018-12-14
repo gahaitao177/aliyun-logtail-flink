@@ -20,7 +20,7 @@ object ConfigUtil {
         configProps.put(ConfigConstants.LOG_ACCESSKEY, "LKGQfDOA08FjNtVMPe3FmuMuIATTRT")
 
         // 设置日志服务的consumer_group
-        configProps.put(ConfigConstants.LOG_CONSUMERGROUP, "bigdata-streaming-learn-action")
+        configProps.put(ConfigConstants.LOG_CONSUMERGROUP, "bigdata-streaming-learn-action-broadcast")
         // 设置日志服务的project
         configProps.put(ConfigConstants.LOG_PROJECT, "study")
         // 设置日志服务的Logstore

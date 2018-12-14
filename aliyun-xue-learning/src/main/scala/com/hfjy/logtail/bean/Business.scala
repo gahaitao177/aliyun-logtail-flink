@@ -3,8 +3,10 @@ package com.hfjy.logtail.bean
 import scala.beans.BeanProperty
 
 /**
-  * Created by kehailin on 2018-8-27. 
+  * Created by kehailin on 2018-8-27.
+  * @deprecated
   */
+@deprecated
 case class Business(@BeanProperty var logType: String = "",
                     @BeanProperty var originDateTime: String = "",
                     @BeanProperty override val dateTime: String = "",
