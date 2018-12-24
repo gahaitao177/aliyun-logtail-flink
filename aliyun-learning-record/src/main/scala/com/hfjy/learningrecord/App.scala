@@ -46,6 +46,9 @@ object App {
         val result = transform(stream)
 
         result.addSink(new SourceSink[Record](tool, "aliyun_xue_learning_record").elasticSearchSink())
+
+        stream.print().setParallelism(1)
+
         env.execute("aliyun_xue_learning_record")
 
     }

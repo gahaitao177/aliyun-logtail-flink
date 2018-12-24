@@ -83,7 +83,6 @@ object App {
 
     }
 
-
     def checkArguments(tool: ParameterTool): Boolean = {
         tool.has("output")
     }

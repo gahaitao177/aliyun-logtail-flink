@@ -1,10 +1,8 @@
-package com.hfjy.logtail.flink
+package com.hfjy.ml.flink
 
-import java.util
-
-import com.hfjy.logtail.bean.Time
-import com.hfjy.logtail.impl.RestClientFactoryImpl
-import com.hfjy.logtail.util.BeanUtil
+import com.hfjy.ml.bean.Time
+import com.hfjy.ml.impl.RestClientFactoryImpl
+import com.hfjy.ml.util.BeanUtil
 import org.apache.flink.api.common.functions.RuntimeContext
 import org.apache.flink.api.java.utils.ParameterTool
 import org.apache.flink.streaming.connectors.elasticsearch.util.RetryRejectedExecutionFailureHandler

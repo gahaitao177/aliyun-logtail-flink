@@ -19,6 +19,9 @@
         <module>aliyun-learn-hmHwl</module>
         <module>aliyun-ml-trial-lesson-request</module>
         <module>aliyun-ml-trial-lesson-response</module>
+        <module>aliyun-ml-trial-lesson-recommend</module>
+        <module>elasticsearch-data-to-hive</module>
+        <module>aliyun-ml-trial-lesson-assigning-model</module>
     </modules>
 
     <properties>

@@ -3,11 +3,10 @@ package com.hfjy.ml
 import com.alibaba.fastjson.JSON
 import com.aliyun.openservices.log.flink.FlinkLogConsumer
 import com.aliyun.openservices.log.flink.data.{RawLog, RawLogGroup, RawLogGroupList}
-import com.hfjy.ml.bean.{Lesson, LessonRequest}
+import com.hfjy.ml.bean._
 import com.hfjy.ml.flink.SourceSink
 import com.hfjy.ml.util.ConfigUtil
 import org.apache.flink.api.java.utils.ParameterTool
-import org.apache.flink.contrib.streaming.state.RocksDBStateBackend
 import org.apache.flink.streaming.api.CheckpointingMode
 import org.apache.flink.streaming.api.environment.CheckpointConfig.ExternalizedCheckpointCleanup
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
@@ -15,14 +14,14 @@ import org.apache.flink.streaming.api.scala.DataStream
 
 import scala.collection.JavaConverters._
 import org.apache.flink.api.scala._
+import org.apache.flink.contrib.streaming.state.RocksDBStateBackend
 
 import scala.collection.mutable.ListBuffer
 
 /**
-  * Created by kehailin on 2018-12-13. 
+  * Created by kehailin on 2018-12-21. 
   */
-object TrialLessonRequest {
-
+object AssigningModel {
     def main(args: Array[String]): Unit = {
 
         val tool: ParameterTool = ParameterTool.fromArgs(args)
@@ -40,20 +39,24 @@ object TrialLessonRequest {
         env.getCheckpointConfig.setCheckpointTimeout(60000)
         env.getCheckpointConfig.setMaxConcurrentCheckpoints(1)
         env.getCheckpointConfig.enableExternalizedCheckpoints(ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION)
-        val checkpoint = "hdfs://hfflink/flink/checkpoints/ml_trial_lesson_request"
+        val checkpoint = "hdfs://hfflink/flink/checkpoints/ml_trial_lesson_assining_model"
         env.setStateBackend(new RocksDBStateBackend(checkpoint, true))
 
         val inputStream = env.addSource(new FlinkLogConsumer[RawLogGroupList](deserializer, configProps))
 
         val stream = new DataStream[RawLogGroupList](inputStream)  //转化成Scala的DataStream
-        val lesson = transform(stream)
+        val assigningModel: DataStream[RawLog] = initTransform(stream)
 
-        lesson.addSink(new SourceSink[Lesson](tool, "aliyun_ml_trial_lesson_request").elasticSearchSink())
-        env.execute("aliyun_ml_trial_lesson_request")
+
+        val modelAssign = transformAssigningModel(assigningModel)
+
+        modelAssign.addSink(new SourceSink[AssigningModelTeacherId](tool, "aliyun_ml_trial_lesson_recommend_assigin_model").elasticSearchSink())
+
+        env.execute("aliyun_ml_trial_lesson_assigining_model")
 
     }
 
-    def transform(stream: DataStream[RawLogGroupList]): DataStream[Lesson] = {
+    def initTransform(stream: DataStream[RawLogGroupList]): DataStream[RawLog] = {
         val rawLogGroup: DataStream[RawLogGroup] = stream.flatMap(r => {
             val list = r.rawLogGroups.asScala
             list.iterator
@@ -64,37 +67,37 @@ object TrialLessonRequest {
             list.iterator
         })
 
-        val contents = rawLog.map(_.contents).filter(_.get("level") == "INFO")
+        rawLog
+    }
 
-        val lesson = contents.flatMap(c => {
-            val list = ListBuffer.empty[Lesson]
+
+    def transformAssigningModel(rawLog: DataStream[RawLog]): DataStream[AssigningModelTeacherId] = {
+
+        val contents = rawLog.map(_.contents)
+
+        contents.flatMap(line => {
+            val list = ListBuffer.empty[AssigningModelTeacherId]
+
             try {
-                val dateTime = c.get("time")
-                val message = c.get("message")
-                val request = JSON.parseObject(message, classOf[LessonRequest])
-                val figure = request.figures.get(0)
-                val count = request.count
+                val time = line.get("time")
+                val info = line.get("message")
 
-                val beginTime = figure.earliest_lesson_begin_time
-                val endTime = figure.earliest_lesson_end_time
-                val studentId = figure.student_id
-                val teacherIds: java.util.List[Int] = figure.teacher_ids
-                val orderId = figure.order_id
-                for (i <- 0 until teacherIds.size()) {
-                    val teacherId = teacherIds.get(i)
-                    list.append(Lesson(dateTime, orderId, studentId, teacherId, count, beginTime, endTime))
+                val jsonArray = JSON.parseArray(info)
+                for (i <- 0 until jsonArray.size()) {
+                    val data = JSON.parseObject(jsonArray.getString(i), classOf[AssigningModelTeacherId])
+                    val teacher = data.copy(dateTime = time)
+                    list.append(teacher)
                 }
-
             } catch {
-                case e: Exception => list.append(Lesson())
+                case e: Exception => list.append(AssigningModelTeacherId())
             }
+
             list
         }).filter(_.dateTime != "")
-        lesson
+
     }
 
     def checkArguments(tool: ParameterTool): Boolean = {
         tool.has("output")
     }
-
 }

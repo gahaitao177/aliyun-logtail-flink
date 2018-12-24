@@ -54,7 +54,7 @@ class SourceSink[T <: Time](tool: ParameterTool, topic: String) extends Serializ
             }
         )
 
-        esSinkBuilder.setBulkFlushMaxActions(10)
+        esSinkBuilder.setBulkFlushMaxActions(20)
         esSinkBuilder.setRestClientFactory(new RestClientFactoryImpl)
         esSinkBuilder.setFailureHandler(new RetryRejectedExecutionFailureHandler())
 

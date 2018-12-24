@@ -9,10 +9,10 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>aliyun-ml-trial-lesson-response</artifactId>
+    <artifactId>aliyun-ml-trial-lesson-recommend</artifactId>
 
     <build>
-        <finalName>online-aliyun-ml-trial-lesson-response</finalName>
+        <finalName>online-aliyun-ml-trial-lesson-recommend</finalName>
         <sourceDirectory>src/main/scala</sourceDirectory>
         <plugins>
             <plugin>
@@ -70,7 +70,7 @@
                             </filters>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.hfjy.ml.TrialLessonResponse</mainClass>
+                                    <mainClass>com.hfjy.ml.TrialLessonRecommend</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>
