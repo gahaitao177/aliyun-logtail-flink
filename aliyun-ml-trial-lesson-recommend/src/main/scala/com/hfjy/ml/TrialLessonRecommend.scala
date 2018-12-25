@@ -1,5 +1,7 @@
 package com.hfjy.ml
 
+import java.util.concurrent.atomic.AtomicInteger
+
 import com.alibaba.fastjson.JSON
 import com.aliyun.openservices.log.flink.FlinkLogConsumer
 import com.aliyun.openservices.log.flink.data.{RawLog, RawLogGroup, RawLogGroupList}
@@ -22,6 +24,8 @@ import scala.collection.mutable.ListBuffer
   * Created by kehailin on 2018-12-17. 
   */
 object TrialLessonRecommend {
+    val ai = new AtomicInteger(0)
+
     def main(args: Array[String]): Unit = {
 
         val tool: ParameterTool = ParameterTool.fromArgs(args)
@@ -49,6 +53,7 @@ object TrialLessonRecommend {
 
         val recommends = init.split(d => {
             val func = d.contents.get("func")
+            println("fucntion: " + func)
             func match {
                 case "batch_model_a" => List("batch_model_a")
                 case "batch_model_b" => List("batch_model_b")
@@ -56,6 +61,7 @@ object TrialLessonRecommend {
                 case _ => List("others")
             }
         })
+
 
         val batchModelA = recommends.select("batch_model_a")
         val batchModelB = recommends.select("batch_model_b")
@@ -67,7 +73,7 @@ object TrialLessonRecommend {
 
         modelA.addSink(new SourceSink[BatchModelATeacherId](tool, "aliyun_ml_trial_lesson_recommend_model_a").elasticSearchSink())
         modelB.addSink(new SourceSink[BatchModelBTeacherId](tool, "aliyun_ml_trial_lesson_recommend_model_b").elasticSearchSink())
-        modelAssign.addSink(new SourceSink[AssigningModelTeacherId](tool, "aliyun_ml_trial_lesson_recommend_assigin_model").elasticSearchSink())
+//        modelAssign.addSink(new SourceSink[AssigningModelTeacherId](tool, "aliyun_ml_trial_lesson_recommend_assigin_model").elasticSearchSink())
 
         env.execute("aliyun_ml_trial_lesson_recommend")
 
@@ -83,7 +89,6 @@ object TrialLessonRecommend {
             val list = r.getLogs.asScala
             list.iterator
         })
-
         rawLog
     }
 
@@ -94,6 +99,8 @@ object TrialLessonRecommend {
         val model = contents.flatMap(line => {
             val list = ListBuffer.empty[BatchModelATeacherId]
             try {
+
+                println("model a")
 
                 val time = line.get("time")
                 val info = line.get("message").trim
@@ -130,17 +137,11 @@ object TrialLessonRecommend {
             val list = ListBuffer.empty[BatchModelBTeacherId]
             try {
 
+                println("model b")
                 val time = line.get("time")
                 val info = line.get("message").trim
 
-                val newInfo = if (!info.endsWith("}]}}")) {
-                    val index = info.lastIndexOf("}")
-                    info.substring(0, index + 1) + "]}}"
-                } else {
-                    info
-                }
-
-                val msg = JSON.parseObject(newInfo, classOf[Message])
+                val msg = JSON.parseObject(info, classOf[Message])
                 val version = msg.version
                 val code = msg.code
                 val message = msg.message
