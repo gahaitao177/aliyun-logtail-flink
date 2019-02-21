@@ -12,6 +12,7 @@ import org.apache.flink.streaming.api.scala.DataStream
 import org.apache.flink.api.scala._
 import org.apache.flink.contrib.streaming.state.RocksDBStateBackend
 import org.apache.flink.streaming.api.CheckpointingMode
+import org.apache.flink.streaming.api.datastream.DataStreamSource
 import org.apache.flink.streaming.api.environment.CheckpointConfig.ExternalizedCheckpointCleanup
 
 import scala.collection.JavaConverters._
@@ -42,10 +43,12 @@ object App {
 
         val inputStream = env.addSource(new FlinkLogConsumer[RawLogGroupList](deserializer, configProps))
 
-        val stream = new DataStream[RawLogGroupList](inputStream)  //转化成Scala的DataStream
-        val result = transform(stream)
+        val stream: DataStream[RawLogGroupList] = new DataStream[RawLogGroupList](inputStream)  //转化成Scala的DataStream
+        val result: DataStream[Message] = transform(stream)
 
         result.addSink(new SourceSink[Message](tool, "aliyun_user_action").elasticSearchSink())
+
+        result.print()
 
         env.execute("aliyun_user_action")
     }

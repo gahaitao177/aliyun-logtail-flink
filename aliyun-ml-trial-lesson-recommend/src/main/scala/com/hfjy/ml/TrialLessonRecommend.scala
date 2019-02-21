@@ -57,7 +57,7 @@ object TrialLessonRecommend {
             func match {
                 case "batch_model_a" => List("batch_model_a")
                 case "batch_model_b" => List("batch_model_b")
-                case "assigning_model" => List("assigning_model")
+                case "assigning_model" => List("assigning_model")  //已被移除为一个单独模块
                 case _ => List("others")
             }
         })
@@ -68,12 +68,12 @@ object TrialLessonRecommend {
         val assigningModel = recommends.select("assigning_model")
 
         val modelA = transformBatchModelA(batchModelA)
-        val modelB = transformBatchModelB(batchModelB)
+        val modelB = transformBatchModelBV2(batchModelB)
         val modelAssign = transformAssigningModel(assigningModel)
 
         modelA.addSink(new SourceSink[BatchModelATeacherId](tool, "aliyun_ml_trial_lesson_recommend_model_a").elasticSearchSink())
-        modelB.addSink(new SourceSink[BatchModelBTeacherId](tool, "aliyun_ml_trial_lesson_recommend_model_b").elasticSearchSink())
-//        modelAssign.addSink(new SourceSink[AssigningModelTeacherId](tool, "aliyun_ml_trial_lesson_recommend_assigin_model").elasticSearchSink())
+        modelB.addSink(new SourceSink[BatchModelBTeacherIdV2](tool, "aliyun_ml_trial_lesson_recommend_model_b_v2").elasticSearchSink())
+//        modelAssign.addSink(new SourceSink[AssigningModelTeacherId](tool, "aliyun_ml_trial_lesson_recommend_assigin_model").elasticSearchSink()) //已被移除为一个单独模块
 
         env.execute("aliyun_ml_trial_lesson_recommend")
 
@@ -130,6 +130,7 @@ object TrialLessonRecommend {
         model
     }
 
+    @deprecated("换新模型, 改用transformBatchModelBV2 方法", "20190214")
     def transformBatchModelB(rawLog: DataStream[RawLog]): DataStream[BatchModelBTeacherId] = {
 
         val contents = rawLog.map(_.contents)
@@ -153,6 +154,36 @@ object TrialLessonRecommend {
                 }
             } catch {
                 case e: Exception => list.append(BatchModelBTeacherId())
+            }
+            list
+        }).filter(_.dateTime != "")
+        model
+    }
+
+    //从20190214的某个时刻起，model b全部换成该模型
+    def transformBatchModelBV2(rawLog: DataStream[RawLog]): DataStream[BatchModelBTeacherIdV2] = {
+
+        val contents = rawLog.map(_.contents)
+        val model = contents.flatMap(line => {
+            val list = ListBuffer.empty[BatchModelBTeacherIdV2]
+            try {
+
+                println("model b")
+                val time = line.get("time")
+                val info = line.get("message").trim
+
+                val msg = JSON.parseObject(info, classOf[Message])
+                val version = msg.version
+                val code = msg.code
+                val message = msg.message
+                val data = JSON.parseObject(msg.data, classOf[BatchModelBDataV2])
+                val teacherIds = data.teacher_ids.asScala
+                for (teacherId <- teacherIds) {
+                    val teacher = teacherId.copy(dateTime = time, version = version, code = code, message = message)
+                    list.append(teacher)
+                }
+            } catch {
+                case e: Exception => list.append(BatchModelBTeacherIdV2())
             }
             list
         }).filter(_.dateTime != "")

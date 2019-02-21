@@ -14,6 +14,7 @@ import org.apache.flink.streaming.api.scala.DataStream
 
 import scala.collection.JavaConverters._
 import org.apache.flink.api.scala._
+import org.apache.flink.streaming.api.datastream.DataStreamSource
 /**
   * Created by kehailin on 2018-12-12. 
   */
@@ -38,12 +39,13 @@ object App {
         val checkpoint = "hdfs://hfflink/flink/checkpoints/learn_hmHwl"
         env.setStateBackend(new RocksDBStateBackend(checkpoint, true))
 
-        val inputStream = env.addSource(new FlinkLogConsumer[RawLogGroupList](deserializer, configProps))
+        val inputStream: DataStreamSource[RawLogGroupList] = env.addSource(new FlinkLogConsumer[RawLogGroupList](deserializer, configProps))
 
         val stream = new DataStream[RawLogGroupList](inputStream)  //转化成Scala的DataStream
         val result = transform(stream)
 
         result.addSink(new SourceSink[Jpjy](tool, "aliyun_learn_hmhwl").elasticSearchSink())
+
         env.execute("aliyun_learn_hmHwl")
 
     }

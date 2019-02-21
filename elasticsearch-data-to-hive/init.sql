@@ -131,6 +131,7 @@ alter table tmp.es_user_action set tblproperties('es.resource' = 'aliyun_user_ac
 insert overwrite table ods_es.es_user_action partition(dt='20181213')
 select * from tmp.es_user_action;
 
+
 --4.learn hmHwl
 CREATE EXTERNAL TABLE tmp.es_learn_hmhwl(
 date_time string,

@@ -20,6 +20,7 @@ import org.apache.flink.api.scala._
   * Created by kehailin on 2018-12-11. 
   */
 object App {
+
     def main(args: Array[String]): Unit = {
 
         val tool: ParameterTool = ParameterTool.fromArgs(args)
@@ -46,8 +47,6 @@ object App {
         val result = transform(stream)
 
         result.addSink(new SourceSink[Record](tool, "aliyun_xue_learning_record").elasticSearchSink())
-
-        stream.print().setParallelism(1)
 
         env.execute("aliyun_xue_learning_record")
 
@@ -76,6 +75,7 @@ object App {
 
 
                 val dateTime = c.get("time").substring(0, 23)
+                println(dateTime)
                 val user = userInfo.split("_")
                 val lessonPlanId = user(0).toInt
                 val userId = user(1).toInt

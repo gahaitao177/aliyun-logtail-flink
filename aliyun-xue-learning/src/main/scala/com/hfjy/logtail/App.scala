@@ -52,7 +52,6 @@ object App {
 
         result.addSink(new SourceSink[Business](tool, "aliyun_xue_learning").elasticSearchSink())
 
-//        result.print().setParallelism(1)
         env.execute("aliyun_xue_learning")
     }
 

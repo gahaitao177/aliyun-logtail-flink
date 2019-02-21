@@ -24,7 +24,7 @@ object ConfigUtil {
         // 设置日志服务的project
         configProps.put(ConfigConstants.LOG_PROJECT, "study")
         // 设置日志服务的Logstore
-        configProps.put(ConfigConstants.LOG_LOGSTORE, "study_learn_action")
+        configProps.put(ConfigConstants.LOG_LOGSTORE, "xue_gateway_learn_learn_action_log")
         // 设置消费日志服务起始位置
         configProps.put(ConfigConstants.LOG_CONSUMER_BEGIN_POSITION, Consts.LOG_END_CURSOR)
         // 设置日志服务的消息反序列化方法

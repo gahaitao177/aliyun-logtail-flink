@@ -1,5 +1,7 @@
 package com.hfjy.logtail
 
+import java.util
+
 import com.aliyun.openservices.log.flink.data.{RawLog, RawLogGroup, RawLogGroupList}
 import com.aliyun.openservices.log.flink.FlinkLogConsumer
 import com.hfjy.logtail.bean.Contents
@@ -12,6 +14,7 @@ import org.apache.flink.streaming.api.CheckpointingMode
 import org.apache.flink.streaming.api.environment.CheckpointConfig.ExternalizedCheckpointCleanup
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 import org.apache.flink.streaming.api.scala.DataStream
+
 import scala.collection.JavaConverters._
 
 /**
@@ -35,6 +38,7 @@ object App {
         }
 
         val (configProps, deserializer) = ConfigUtil.getConfig
+
 
         val env = StreamExecutionEnvironment.getExecutionEnvironment
         env.enableCheckpointing(60000)
@@ -103,7 +107,7 @@ object App {
             } catch {
                 case e: Exception => Contents()
             }
-        }).filter(_.dateTime != "-1")
+        }).filter(line => line.dateTime != "-1" && !line.uri.startsWith("/learning/in/") && !line.uri.startsWith("/in/"))
         result
     }
 
