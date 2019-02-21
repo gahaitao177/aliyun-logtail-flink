@@ -11,7 +11,6 @@
     <modules>
         <module>aliyun-xue-nginx</module>
         <module>aliyun-xue-learning</module>
-        <module>aliyun-xue-study</module>
         <module>aliyun-xue-study-split</module>
         <module>aliyun-learn-action</module>
         <module>aliyun-user-action</module>
@@ -126,7 +125,5 @@
             <version>2.9.6</version>
         </dependency>
     </dependencies>
-
-
 
 </project>
