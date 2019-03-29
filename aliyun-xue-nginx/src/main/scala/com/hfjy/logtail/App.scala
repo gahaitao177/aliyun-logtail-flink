@@ -33,12 +33,11 @@ object App {
 
         val tool: ParameterTool = ParameterTool.fromArgs(args)
         if (!checkArguments(tool)){
-            System.err.println("No port specified. Please run 'App --output <output>'")
+            System.err.println("No port specified. Please run 'App --output <output>..'")
             System.exit(1)
         }
 
         val (configProps, deserializer) = ConfigUtil.getConfig
-
 
         val env = StreamExecutionEnvironment.getExecutionEnvironment
         env.enableCheckpointing(60000)
