@@ -1,10 +1,10 @@
 package com.hfjy.learningrecord
 
-import com.alibaba.fastjson.JSON
+import com.alibaba.fastjson.{JSON, JSONObject}
 import com.aliyun.openservices.log.flink.FlinkLogConsumer
 import com.aliyun.openservices.log.flink.data.{RawLog, RawLogGroup, RawLogGroupList}
-import com.hfjy.learningrecord.bean.Record
-import com.hfjy.learningrecord.flink.SourceSink
+import com.hfjy.learningrecord.bean.{LessonQuiz, Record}
+import com.hfjy.learningrecord.flink.{MysqlSink, SourceSink}
 import com.hfjy.learningrecord.util.ConfigUtil
 import org.apache.flink.api.java.utils.ParameterTool
 import org.apache.flink.contrib.streaming.state.RocksDBStateBackend
@@ -45,11 +45,27 @@ object App {
 
         val stream = new DataStream[RawLogGroupList](inputStream)  //转化成Scala的DataStream
         val result = transform(stream)
+        val split = result.split(d => {
+            val command = d.command
+            command match {
+                case cmd if cmd.contains("toQuiz") => List("quiz")
+                case _ => List("others")
+            }
+        })
 
-        result.addSink(new SourceSink[Record](tool, "aliyun_xue_learning_record").elasticSearchSink())
+        val resultAll = split.select("quiz", "others")
+        val quiz = split.select("quiz").map(record => {
+            val dateTime = record.dateTime
+            val lessonPlanId = record.lessonPlanId
+            val command: JSONObject = JSON.parseObject(record.command)
+            val direct = command.getIntValue("direct")
+            val quizId = command.getString("quizId")
+            LessonQuiz(dateTime, lessonPlanId, direct, quizId)
+        })
+        quiz.addSink(new MysqlSink)
+        resultAll.addSink(new SourceSink[Record](tool, "aliyun_xue_learning_record").elasticSearchSink())
 
         env.execute("aliyun_xue_learning_record")
-
     }
 
     def transform(stream: DataStream[RawLogGroupList]): DataStream[Record] = {
@@ -67,15 +83,12 @@ object App {
 
         val result = contents.map(c => {
             try {
-                //- 5622748_505389_0 {"a":"m","t":"control","controlType":"scrollTop","top":478.5,"quizId":"35972473","s":"505389","tm":1544510196118,"i":24337}, class=com.hfjy.learning.record}}}
                 val line = c.get("message").substring(1).trim
                 val arr = line.split("(\t| )\\{")
                 val userInfo = arr(0).trim
                 val command = "{" + arr(1).trim
 
-
                 val dateTime = c.get("time").substring(0, 23)
-                println(dateTime)
                 val user = userInfo.split("_")
                 val lessonPlanId = user(0).toInt
                 val userId = user(1).toInt

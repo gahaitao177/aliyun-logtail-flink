@@ -12,8 +12,10 @@ import org.apache.flink.contrib.streaming.state.RocksDBStateBackend
 import org.apache.flink.streaming.api.CheckpointingMode
 import org.apache.flink.streaming.api.environment.CheckpointConfig.ExternalizedCheckpointCleanup
 import org.apache.flink.api.scala._
+import org.apache.flink.streaming.api.datastream.DataStreamSource
 import org.apache.flink.streaming.api.functions.co.CoFlatMapFunction
 import org.apache.flink.util.Collector
+
 import scala.collection.JavaConverters._
 
 /**
@@ -40,9 +42,9 @@ object App {
         val checkpoint = "hdfs://hfflink/flink/checkpoints/learn_action"
         env.setStateBackend(new RocksDBStateBackend(checkpoint, true))
 
-        val inputStream = env.addSource(new FlinkLogConsumer[RawLogGroupList](deserializer, configProps))
+        val inputStream: DataStreamSource[RawLogGroupList] = env.addSource(new FlinkLogConsumer[RawLogGroupList](deserializer, configProps))
 
-        val stream = new DataStream[RawLogGroupList](inputStream)  //转化成Scala的DataStream
+        val stream: DataStream[RawLogGroupList] = new DataStream[RawLogGroupList](inputStream)  //转化成Scala的DataStream
 
         val result = transform(stream, env)
 

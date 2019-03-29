@@ -35,4 +35,11 @@ object ConfigUtil {
         val deserializer = new RawLogGroupListDeserializer()
         (configProps, deserializer)
     }
+
+    def getDBConfig() = {
+        val inputStream = ConfigUtil.getClass.getClassLoader.getResourceAsStream("db.properties")
+        val conf = new Properties()
+        conf.load(inputStream)
+        conf
+    }
 }

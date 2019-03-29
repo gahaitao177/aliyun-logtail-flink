@@ -160,7 +160,7 @@ home_work_id string
 )partitioned by(dt string)
 stored as orc tblproperties ("orc.compress"="ZLIB");
 
-alter table tmp.es_learn_hmHwl set tblproperties('es.resource' = 'aliyun_learn_hmhwl_20181213/aliyun_learn_hmhwl_type');
+alter table tmp.es_learn_hmHwl set tblproperties('es.resource' = 'aliyun_learn_hmhwl_20190328/aliyun_learn_hmhwl_type');
 
 insert overwrite table ods_es.es_learn_hmHwl partition(dt='20181213')
 select * from tmp.es_learn_hmHwl;
