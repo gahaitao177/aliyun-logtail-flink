@@ -26,7 +26,7 @@
 
     <properties>
         <flink.version>1.7.2</flink.version>
-        <elasticsearch.version>6.4.2</elasticsearch.version>
+        <elasticsearch.version>6.8.17</elasticsearch.version>
         <fastjson.version>1.2.39</fastjson.version>
         <mysql.version>5.1.45</mysql.version>
     </properties>
